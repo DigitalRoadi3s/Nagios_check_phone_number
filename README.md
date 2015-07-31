@@ -1,0 +1,1 @@
+A Nagios check that uses Asterisk to dial a phone number and return the results of the call.
