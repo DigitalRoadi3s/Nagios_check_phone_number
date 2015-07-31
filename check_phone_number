@@ -1,0 +1,83 @@
+#!/usr/bin/perl
+
+# check_phone_number_.pl 
+# Copyright (c) Eric Santelices, 2015
+# Eric L. Santelices <ericsan@gmail.com>
+# Version 1.2 : 5/25/2015
+
+use strict;
+use warnings;
+use Asterisk::AMI;
+use Getopt::Std;
+use Nagios::Plugin;
+no warnings qw(Asterisk::AMI);
+
+my $ami_server = '10.10.10.10';
+my $timeout = '50000';
+my $ami_port = '5038';
+my $ami_username = 'nagios';
+my $ami_password = ‘@57eR1sK!’;
+
+# nagios exit codes
+use constant EXIT_OK		=> 0;
+use constant EXIT_WARNING	=> 1;
+use constant EXIT_CRITICAL	=> 2;
+use constant EXIT_UNKNOWN	=> 3;
+
+
+# parse cmd opts
+my %opts;
+getopts('vD:', \%opts);
+if (not (defined $opts{D})) {
+	print "ERROR: INVALID USAGE\n";
+	HELP_MESSAGE();
+	exit EXIT_CRITICAL;
+}
+
+my $status = EXIT_OK;
+my $dnis = "9". $opts{D};
+my $channel = 'Local/'.$dnis.'@internal';
+
+# begin code
+my $astman = Asterisk::AMI->new 
+(
+	PeerAddr	=> $ami_server,
+	PeerPort	=> $ami_port,
+	Username	=> $ami_username,
+	Secret		=> $ami_password 
+	
+);
+
+die "Unable to connect to asterisk" unless ($astman);
+
+my $action = $astman->action({Action => 'Originate',
+                                        Channel => $channel,
+                                        Application => 'Wait',
+                                        Data => '30',
+					Timeout => $timeout,
+					Async => '0'});
+
+	if ($action->{Response} eq 'Success') {
+		print "The call to $opts{D} was a Success | Response=1";
+		$status = EXIT_OK;
+	} else {
+		print "The call to $opts{D} resulted in $action->{Response} | Response=0";
+		$status = EXIT_CRITICAL;
+	}	
+
+exit $status;
+
+
+sub HELP_MESSAGE 
+{
+        print <<EOHELP
+        Uses Asterisk to dial a phone number and return the results of the call.
+        
+	[nagios\@mon01]# check_phone_number -D 19545551212
+
+        --help      shows this message
+        -D          DNIS (aka Phone Number)
+
+EOHELP
+;
+}
